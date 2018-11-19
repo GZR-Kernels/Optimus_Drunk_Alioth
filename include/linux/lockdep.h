@@ -109,8 +109,6 @@ struct lock_class {
 	 * Generation counter, when doing certain classes of graph walking,
 	 * to ensure that we check one node only once:
 	 */
-	unsigned int			version;
-
 	int				name_version;
 	const char			*name;
 
