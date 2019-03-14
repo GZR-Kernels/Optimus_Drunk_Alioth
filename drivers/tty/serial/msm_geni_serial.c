@@ -2207,15 +2207,6 @@ static void msm_geni_serial_shutdown(struct uart_port *uport)
 
 	IPC_LOG_MSG(msm_port->ipc_log_misc, "%s:\n", __func__);
 	/* Stop the console before stopping the current tx */
-	if (uart_console(uport)) {
-		console_stop(uport->cons);
-		disable_irq(uport->irq);
-	} else {
-		msm_geni_serial_power_on(uport);
-		wait_for_transfers_inflight(uport);
-		msm_geni_serial_stop_tx(uport);
-	}
-
 	if (likely(!uart_console(uport)))
 		disable_irq(uport->irq);
 
