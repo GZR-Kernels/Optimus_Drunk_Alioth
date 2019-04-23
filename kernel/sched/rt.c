@@ -1616,7 +1616,7 @@ select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags,
 	 * Respect the sync flag as long as the task can run on this CPU.
 	 */
 	if (should_honor_rt_sync(this_cpu_rq, p, sync) &&
-	    cpumask_test_cpu(this_cpu, &p->cpus_allowed)) {
+	    cpumask_test_cpu(this_cpu, p->cpus_ptr)) {
 		cpu = this_cpu;
 		goto out_unlock;
 	}
@@ -1830,7 +1830,7 @@ static void put_prev_task_rt(struct rq *rq, struct task_struct *p)
 static int pick_rt_task(struct rq *rq, struct task_struct *p, int cpu)
 {
 	if (!task_running(rq, p) &&
-	    cpumask_test_cpu(cpu, &p->cpus_allowed))
+	    cpumask_test_cpu(cpu, p->cpus_ptr))
 		return 1;
 
 	return 0;
@@ -2092,7 +2092,7 @@ static struct rq *find_lock_lowest_rq(struct task_struct *task, struct rq *rq)
 			 * Also make sure that it wasn't scheduled on its rq.
 			 */
 			if (unlikely(task_rq(task) != rq ||
-				     !cpumask_test_cpu(lowest_rq->cpu, &task->cpus_allowed) ||
+				     !cpumask_test_cpu(lowest_rq->cpu, task->cpus_ptr) ||
 				     task_running(rq, task) ||
 				     !rt_task(task) ||
 				     !task_on_rq_queued(task))) {
