@@ -394,7 +394,7 @@ static inline u64 iterate_chain_key(u64 key, u32 idx)
 void lockdep_init_task(struct task_struct *task)
 {
 	task->lockdep_depth = 0; /* no locks held yet */
-	task->curr_chain_key = 0;
+	task->curr_chain_key = INITIAL_CHAIN_KEY;
 	task->lockdep_recursion = 0;
 }
 
@@ -889,7 +889,7 @@ static u16 chain_hlocks[MAX_LOCKDEP_CHAIN_HLOCKS];
 static bool check_lock_chain_key(struct lock_chain *chain)
 {
 #ifdef CONFIG_PROVE_LOCKING
-	u64 chain_key = 0;
+	u64 chain_key = INITIAL_CHAIN_KEY;
 	int i;
 
 	for (i = chain->base; i < chain->base + chain->depth; i++)
@@ -1906,13 +1906,8 @@ print_bad_irq_dependency(struct task_struct *curr,
 			 enum lock_usage_bit bit2,
 			 const char *irqclass)
 {
-<<<<<<< HEAD
-	if (!lockdep_logging_off_graph_unlock() || debug_locks_silent)
-		return 0;
-=======
 	if (!debug_locks_off_graph_unlock() || debug_locks_silent)
 		return;
->>>>>>> f7c1c6b36a38... locking/lockdep: Change all print_*() return type to void
 
 	pr_warn("\n");
 	pr_warn("=====================================================\n");
@@ -2225,13 +2220,8 @@ static void
 print_deadlock_bug(struct task_struct *curr, struct held_lock *prev,
 		   struct held_lock *next)
 {
-<<<<<<< HEAD
-	if (!lockdep_logging_off_graph_unlock() || debug_locks_silent)
-		return 0;
-=======
 	if (!debug_locks_off_graph_unlock() || debug_locks_silent)
 		return;
->>>>>>> f7c1c6b36a38... locking/lockdep: Change all print_*() return type to void
 
 	pr_warn("\n");
 	pr_warn("============================================\n");
@@ -2570,7 +2560,7 @@ static void
 print_chain_keys_held_locks(struct task_struct *curr, struct held_lock *hlock_next)
 {
 	struct held_lock *hlock;
-	u64 chain_key = 0;
+	u64 chain_key = INITIAL_CHAIN_KEY;
 	int depth = curr->lockdep_depth;
 	int i = get_first_held_lock(curr, hlock_next);
 
@@ -2590,7 +2580,7 @@ print_chain_keys_held_locks(struct task_struct *curr, struct held_lock *hlock_ne
 static void print_chain_keys_chain(struct lock_chain *chain)
 {
 	int i;
-	u64 chain_key = 0;
+	u64 chain_key = INITIAL_CHAIN_KEY;
 	int class_id;
 
 	printk("depth: %u\n", chain->depth);
@@ -2894,7 +2884,7 @@ static void check_chain_key(struct task_struct *curr)
 #ifdef CONFIG_DEBUG_LOCKDEP
 	struct held_lock *hlock, *prev_hlock = NULL;
 	unsigned int i;
-	u64 chain_key = 0;
+	u64 chain_key = INITIAL_CHAIN_KEY;
 
 	for (i = 0; i < curr->lockdep_depth; i++) {
 		hlock = curr->held_locks + i;
@@ -2918,7 +2908,7 @@ static void check_chain_key(struct task_struct *curr)
 
 		if (prev_hlock && (prev_hlock->irq_context !=
 							hlock->irq_context))
-			chain_key = 0;
+			chain_key = INITIAL_CHAIN_KEY;
 		chain_key = iterate_chain_key(chain_key, hlock->class_idx);
 		prev_hlock = hlock;
 	}
@@ -2963,13 +2953,8 @@ static void
 print_usage_bug(struct task_struct *curr, struct held_lock *this,
 		enum lock_usage_bit prev_bit, enum lock_usage_bit new_bit)
 {
-<<<<<<< HEAD
-	if (!lockdep_logging_off_graph_unlock() || debug_locks_silent)
-		return 0;
-=======
 	if (!debug_locks_off_graph_unlock() || debug_locks_silent)
 		return;
->>>>>>> f7c1c6b36a38... locking/lockdep: Change all print_*() return type to void
 
 	pr_warn("\n");
 	pr_warn("================================\n");
@@ -3029,13 +3014,8 @@ print_irq_inversion_bug(struct task_struct *curr,
 	struct lock_list *middle = NULL;
 	int depth;
 
-<<<<<<< HEAD
-	if (!lockdep_logging_off_graph_unlock() || debug_locks_silent)
-		return 0;
-=======
 	if (!debug_locks_off_graph_unlock() || debug_locks_silent)
 		return;
->>>>>>> f7c1c6b36a38... locking/lockdep: Change all print_*() return type to void
 
 	pr_warn("\n");
 	pr_warn("========================================================\n");
@@ -3683,15 +3663,10 @@ print_lock_nested_lock_not_held(struct task_struct *curr,
 				struct held_lock *hlock,
 				unsigned long ip)
 {
-<<<<<<< HEAD
-	if (!lockdep_logging_off() || debug_locks_silent)
-		return 0;
-=======
 	if (!debug_locks_off())
 		return;
 	if (debug_locks_silent)
 		return;
->>>>>>> f7c1c6b36a38... locking/lockdep: Change all print_*() return type to void
 
 	pr_warn("\n");
 	pr_warn("==================================\n");
@@ -3880,14 +3855,14 @@ static int __lock_acquire(struct lockdep_map *lock, unsigned int subclass,
 		/*
 		 * How can we have a chain hash when we ain't got no keys?!
 		 */
-		if (lockdep_warn_on(chain_key != 0))
+		if (DEBUG_LOCKS_WARN_ON(chain_key != INITIAL_CHAIN_KEY))
 			return 0;
 		chain_head = 1;
 	}
 
 	hlock->prev_chain_key = chain_key;
 	if (separate_irq_context(curr, hlock)) {
-		chain_key = 0;
+		chain_key = INITIAL_CHAIN_KEY;
 		chain_head = 1;
 	}
 	chain_key = iterate_chain_key(chain_key, class_idx);
@@ -3935,15 +3910,10 @@ static void print_unlock_imbalance_bug(struct task_struct *curr,
 				       struct lockdep_map *lock,
 				       unsigned long ip)
 {
-<<<<<<< HEAD
-	if (!lockdep_logging_off() || debug_locks_silent)
-		return 0;
-=======
 	if (!debug_locks_off())
 		return;
 	if (debug_locks_silent)
 		return;
->>>>>>> f7c1c6b36a38... locking/lockdep: Change all print_*() return type to void
 
 	pr_warn("\n");
 	pr_warn("=====================================\n");
@@ -4176,15 +4146,10 @@ __lock_release(struct lockdep_map *lock, int nested, unsigned long ip)
 	 * So we're all set to release this lock.. wait what lock? We don't
 	 * own any locks, you've been drinking again?
 	 */
-<<<<<<< HEAD
-	if (lockdep_warn_on(depth <= 0))
-		return print_unlock_imbalance_bug(curr, lock, ip);
-=======
 	if (DEBUG_LOCKS_WARN_ON(depth <= 0)) {
 		print_unlock_imbalance_bug(curr, lock, ip);
 		return 0;
 	}
->>>>>>> f7c1c6b36a38... locking/lockdep: Change all print_*() return type to void
 
 	/*
 	 * Check whether the lock exists in the current stack
@@ -4552,15 +4517,10 @@ static void print_lock_contention_bug(struct task_struct *curr,
 				      struct lockdep_map *lock,
 				      unsigned long ip)
 {
-<<<<<<< HEAD
-	if (!lockdep_logging_off() || debug_locks_silent)
-		return 0;
-=======
 	if (!debug_locks_off())
 		return;
 	if (debug_locks_silent)
 		return;
->>>>>>> f7c1c6b36a38... locking/lockdep: Change all print_*() return type to void
 
 	pr_warn("\n");
 	pr_warn("=================================\n");
@@ -4763,7 +4723,7 @@ static void remove_class_from_lock_chain(struct pending_free *pf,
 	return;
 
 recalc:
-	chain_key = 0;
+	chain_key = INITIAL_CHAIN_KEY;
 	for (i = chain->base; i < chain->base + chain->depth; i++)
 		chain_key = iterate_chain_key(chain_key, chain_hlocks[i] + 1);
 	if (chain->depth && chain->chain_key == chain_key)
