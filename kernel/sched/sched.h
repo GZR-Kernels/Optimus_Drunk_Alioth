@@ -195,6 +195,11 @@ static inline bool valid_policy(int policy)
 		rt_policy(policy) || dl_policy(policy);
 }
 
+static inline int task_has_idle_policy(struct task_struct *p)
+{
+	return idle_policy(p->policy);
+}
+
 static inline int task_has_rt_policy(struct task_struct *p)
 {
 	return rt_policy(p->policy);
@@ -505,7 +510,8 @@ struct cfs_rq {
 	struct load_weight	load;
 	unsigned long		runnable_weight;
 	unsigned int		nr_running;
-	unsigned int		h_nr_running;
+	unsigned int		h_nr_running;      /* SCHED_{NORMAL,BATCH,IDLE} */
+	unsigned int		idle_h_nr_running; /* SCHED_IDLE */
 
 	u64			exec_clock;
 	u64			min_vruntime;
