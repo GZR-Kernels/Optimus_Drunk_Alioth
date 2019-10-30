@@ -44,7 +44,7 @@ void percpu_free_rwsem(struct percpu_rw_semaphore *sem)
 }
 EXPORT_SYMBOL_GPL(percpu_free_rwsem);
 
-int __percpu_down_read(struct percpu_rw_semaphore *sem, int try)
+bool __percpu_down_read(struct percpu_rw_semaphore *sem, bool try)
 {
 	/*
 	 * Due to having preemption disabled the decrement happens on
@@ -68,7 +68,7 @@ int __percpu_down_read(struct percpu_rw_semaphore *sem, int try)
 	 * release in percpu_up_write().
 	 */
 	if (likely(!smp_load_acquire(&sem->readers_block)))
-		return 1;
+		return true;
 
 	/*
 	 * Per the above comment; we still have preemption disabled and
@@ -77,7 +77,7 @@ int __percpu_down_read(struct percpu_rw_semaphore *sem, int try)
 	__percpu_up_read(sem);
 
 	if (try)
-		return 0;
+		return false;
 
 	/*
 	 * We either call schedule() in the wait, or we'll fall through
@@ -93,7 +93,7 @@ int __percpu_down_read(struct percpu_rw_semaphore *sem, int try)
 	__up_read(&sem->rw_sem);
 
 	preempt_disable();
-	return 1;
+	return true;
 }
 EXPORT_SYMBOL_GPL(__percpu_down_read);
 
