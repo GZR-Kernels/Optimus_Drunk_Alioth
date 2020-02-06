@@ -6563,14 +6563,70 @@ static int select_idle_cpu(struct task_struct *p, struct sched_domain *sd, int t
 }
 
 /*
+ * Scan the asym_capacity domain for idle CPUs; pick the first idle one on which
+ * the task fits. If no CPU is big enough, but there are idle ones, try to
+ * maximize capacity.
+ */
+static int
+select_idle_capacity(struct task_struct *p, struct sched_domain *sd, int target)
+{
+	unsigned long best_cap = 0;
+	int cpu, best_cpu = -1;
+	struct cpumask *cpus;
+
+	sync_entity_load_avg(&p->se);
+
+	cpus = this_cpu_cpumask_var_ptr(select_idle_mask);
+	cpumask_and(cpus, sched_domain_span(sd), &p->cpus_allowed);
+
+	for_each_cpu_wrap(cpu, cpus, target) {
+		unsigned long cpu_cap = capacity_of(cpu);
+
+		if (!available_idle_cpu(cpu))
+			continue;
+		if (task_fits_capacity(p, cpu_cap, cpu))
+			return cpu;
+
+		if (cpu_cap > best_cap) {
+			best_cap = cpu_cap;
+			best_cpu = cpu;
+		}
+	}
+
+	return best_cpu;
+}
+
+/*
  * Try and locate an idle core/thread in the LLC cache domain.
  */
-static inline int __select_idle_sibling(struct task_struct *p, int prev,
-					int target)
+static inline int select_idle_sibling(struct task_struct *p, int prev,
+				      int target)
 {
 	struct sched_domain *sd;
 	int i, recent_used_cpu;
 
+	/*
+	 * For asymmetric CPU capacity systems, our domain of interest is
+	 * sd_asym_cpucapacity rather than sd_llc.
+	 */
+	if (static_branch_unlikely(&sched_asym_cpucapacity)) {
+		sd = rcu_dereference(per_cpu(sd_asym_cpucapacity, target));
+		/*
+		 * On an asymmetric CPU capacity system where an exclusive
+		 * cpuset defines a symmetric island (i.e. one unique
+		 * capacity_orig value through the cpuset), the key will be set
+		 * but the CPUs within that cpuset will not have a domain with
+		 * SD_ASYM_CPUCAPACITY. These should follow the usual symmetric
+		 * capacity path.
+		 */
+		if (!sd)
+			goto symmetric;
+
+		i = select_idle_capacity(p, sd, target);
+		return ((unsigned)i < nr_cpumask_bits) ? i : target;
+	}
+
+symmetric:
 	if (available_idle_cpu(target) && !cpu_isolated(target))
 		return target;
 
@@ -6613,82 +6669,6 @@ static inline int __select_idle_sibling(struct task_struct *p, int prev,
 		return i;
 
 	return target;
-}
-
-static inline int select_idle_sibling_cstate_aware(struct task_struct *p,
-						   int prev, int target)
-{
-	struct sched_domain *sd;
-	struct sched_group *sg;
-	int best_idle_cpu = -1;
-	int best_idle_cstate = -1;
-	int best_idle_capacity = INT_MAX;
-	int i;
-
-	/*
-	 * Iterate the domains and find an elegible idle cpu.
-	 */
-	sd = rcu_dereference(per_cpu(sd_llc, target));
-	for_each_lower_domain(sd) {
-		sg = sd->groups;
-		do {
-			if (!cpumask_intersects(sched_group_span(sg),
-						&p->cpus_allowed))
-				goto next;
-
-			for_each_cpu_and(i, &p->cpus_allowed,
-					  sched_group_span(sg)) {
-				int idle_idx;
-				unsigned long new_usage;
-				unsigned long capacity_orig;
-
-				if (!idle_cpu(i))
-					goto next;
-
-				/* figure out if the task can fit here at all */
-				new_usage = uclamp_task(p);
-				capacity_orig = capacity_orig_of(i);
-
-				if (new_usage > capacity_orig)
-					goto next;
-
-				/* if the task fits without changing OPP and we
-				 * intended to use this CPU, just proceed
-				 */
-				if (i == target &&
-				    new_usage <= capacity_curr_of(target)) {
-					return target;
-				}
-
-				/* otherwise select CPU with shallowest idle
-				 * state to reduce wakeup latency.
-				 */
-				idle_idx = idle_get_state_idx(cpu_rq(i));
-
-				if (idle_idx < best_idle_cstate &&
-				    capacity_orig <= best_idle_capacity) {
-					best_idle_cpu = i;
-					best_idle_cstate = idle_idx;
-					best_idle_capacity = capacity_orig;
-				}
-			}
-next:
-			sg = sg->next;
-		} while (sg != sd->groups);
-	}
-
-	if (best_idle_cpu >= 0)
-		target = best_idle_cpu;
-
-	return target;
-}
-
-static int select_idle_sibling(struct task_struct *p, int prev, int target)
-{
-	if (!sysctl_sched_cstate_aware)
-		return __select_idle_sibling(p, prev, target);
-
-	return select_idle_sibling_cstate_aware(p, prev, target);
 }
 
 /*
