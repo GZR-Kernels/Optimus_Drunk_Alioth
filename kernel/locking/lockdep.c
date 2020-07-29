@@ -3897,19 +3897,21 @@ check_usage_backwards(struct task_struct *curr, struct held_lock *this,
 
 void print_irqtrace_events(struct task_struct *curr)
 {
-	printk("irq event stamp: %u\n", curr->irq_events);
+	const struct irqtrace_events *trace = &curr->irqtrace;
+
+	printk("irq event stamp: %u\n", trace->irq_events);
 	printk("hardirqs last  enabled at (%u): [<%px>] %pS\n",
-		curr->hardirq_enable_event, (void *)curr->hardirq_enable_ip,
-		(void *)curr->hardirq_enable_ip);
+		trace->hardirq_enable_event, (void *)trace->hardirq_enable_ip,
+		(void *)trace->hardirq_enable_ip);
 	printk("hardirqs last disabled at (%u): [<%px>] %pS\n",
-		curr->hardirq_disable_event, (void *)curr->hardirq_disable_ip,
-		(void *)curr->hardirq_disable_ip);
+		trace->hardirq_disable_event, (void *)trace->hardirq_disable_ip,
+		(void *)trace->hardirq_disable_ip);
 	printk("softirqs last  enabled at (%u): [<%px>] %pS\n",
-		curr->softirq_enable_event, (void *)curr->softirq_enable_ip,
-		(void *)curr->softirq_enable_ip);
+		trace->softirq_enable_event, (void *)trace->softirq_enable_ip,
+		(void *)trace->softirq_enable_ip);
 	printk("softirqs last disabled at (%u): [<%px>] %pS\n",
-		curr->softirq_disable_event, (void *)curr->softirq_disable_ip,
-		(void *)curr->softirq_disable_ip);
+		trace->softirq_disable_event, (void *)trace->softirq_disable_ip,
+		(void *)trace->softirq_disable_ip);
 }
 
 static int HARDIRQ_verbose(struct lock_class *class)
@@ -4098,7 +4100,7 @@ EXPORT_SYMBOL_GPL(lockdep_hardirqs_on_prepare);
 
 void noinstr lockdep_hardirqs_on(unsigned long ip)
 {
-	struct task_struct *curr = current;
+	struct irqtrace_events *trace = &current->irqtrace;
 
 	if (unlikely(!debug_locks || curr->lockdep_recursion))
 		return;
@@ -4130,8 +4132,8 @@ void noinstr lockdep_hardirqs_on(unsigned long ip)
 
 	/* we'll do an OFF -> ON transition: */
 	this_cpu_write(hardirqs_enabled, 1);
-	curr->hardirq_enable_ip = ip;
-	curr->hardirq_enable_event = ++curr->irq_events;
+	trace->hardirq_enable_ip = ip;
+	trace->hardirq_enable_event = ++trace->irq_events;
 	debug_atomic_inc(hardirqs_on_events);
 }
 EXPORT_SYMBOL_GPL(lockdep_hardirqs_on);
@@ -4141,7 +4143,6 @@ EXPORT_SYMBOL_GPL(lockdep_hardirqs_on);
  */
 void noinstr lockdep_hardirqs_off(unsigned long ip)
 {
-	struct task_struct *curr = current;
 
 	if (unlikely(!debug_locks || curr->lockdep_recursion))
 		return;
@@ -4154,12 +4155,14 @@ void noinstr lockdep_hardirqs_off(unsigned long ip)
 		return;
 
 	if (lockdep_hardirqs_enabled(curr)) {
+		struct irqtrace_events *trace = &current->irqtrace;
+
 		/*
 		 * We have done an ON -> OFF transition:
 		 */
 		this_cpu_write(hardirqs_enabled, 0);
-		curr->hardirq_disable_ip = ip;
-		curr->hardirq_disable_event = ++curr->irq_events;
+		trace->hardirq_disable_ip = ip;
+		trace->hardirq_disable_event = ++trace->irq_events;
 		debug_atomic_inc(hardirqs_off_events);
 	} else {
 		debug_atomic_inc(redundant_hardirqs_off);
@@ -4172,7 +4175,7 @@ EXPORT_SYMBOL_GPL(lockdep_hardirqs_off);
  */
 void lockdep_softirqs_on(unsigned long ip)
 {
-	struct task_struct *curr = current;
+	struct irqtrace_events *trace = &current->irqtrace;
 
 	if (unlikely(!debug_locks || current->lockdep_recursion))
 		return;
@@ -4184,7 +4187,7 @@ void lockdep_softirqs_on(unsigned long ip)
 	if (DEBUG_LOCKS_WARN_ON(!irqs_disabled()))
 		return;
 
-	if (curr->softirqs_enabled) {
+	if (current->softirqs_enabled) {
 		debug_atomic_inc(redundant_softirqs_on);
 		return;
 	}
@@ -4193,9 +4196,9 @@ void lockdep_softirqs_on(unsigned long ip)
 	/*
 	 * We'll do an OFF -> ON transition:
 	 */
-	curr->softirqs_enabled = 1;
-	curr->softirq_enable_ip = ip;
-	curr->softirq_enable_event = ++curr->irq_events;
+	current->softirqs_enabled = 1;
+	trace->softirq_enable_ip = ip;
+	trace->softirq_enable_event = ++trace->irq_events;
 	debug_atomic_inc(softirqs_on_events);
 	/*
 	 * We are going to turn softirqs on, so set the
@@ -4212,8 +4215,6 @@ void lockdep_softirqs_on(unsigned long ip)
  */
 void lockdep_softirqs_off(unsigned long ip)
 {
-	struct task_struct *curr = current;
-
 	if (unlikely(!debug_locks || current->lockdep_recursion))
 		return;
 
@@ -4223,13 +4224,15 @@ void lockdep_softirqs_off(unsigned long ip)
 	if (DEBUG_LOCKS_WARN_ON(!irqs_disabled()))
 		return;
 
-	if (curr->softirqs_enabled) {
+	if (current->softirqs_enabled) {
+		struct irqtrace_events *trace = &current->irqtrace;
+
 		/*
 		 * We have done an ON -> OFF transition:
 		 */
-		curr->softirqs_enabled = 0;
-		curr->softirq_disable_ip = ip;
-		curr->softirq_disable_event = ++curr->irq_events;
+		current->softirqs_enabled = 0;
+		trace->softirq_disable_ip = ip;
+		trace->softirq_disable_event = ++trace->irq_events;
 		debug_atomic_inc(softirqs_off_events);
 		/*
 		 * Whoops, we wanted softirqs off, so why aren't they?
