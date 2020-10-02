@@ -76,29 +76,22 @@ module_param(lock_stat, int, 0644);
 #define lock_stat 0
 #endif
 
-static int lockdep_log = 1;
+DEFINE_PER_CPU(unsigned int, lockdep_recursion);
+EXPORT_PER_CPU_SYMBOL_GPL(lockdep_recursion);
 
-static int lockdep_logging_off(void)
+static inline bool lockdep_enabled(void)
 {
-	if (lockdep_log && xchg(&lockdep_log, 0)) {
-		if (!debug_locks_silent)
-			return 1;
-	}
-	return 0;
-}
+	if (!debug_locks)
+		return false;
 
-#define MAX_ITR 20
-#define lockdep_warn_on(cond)						\
-({									\
-	int __ret = 0;							\
-									\
-	if (!oops_in_progress && unlikely(cond)) {                      \
-		if (lockdep_logging_off() && !debug_locks_silent)       \
-			WARN(1, "lockdep_warn_on(%s)", #cond);          \
-		__ret = 1;						\
-	}								\
-	__ret;								\
-})
+	if (raw_cpu_read(lockdep_recursion))
+		return false;
+
+	if (current->lockdep_recursion)
+		return false;
+
+	return true;
+}
 
 /*
  * lockdep_lock: protects the lockdep graph, the hashes and the
@@ -117,7 +110,7 @@ static inline void lockdep_lock(void)
 
 	arch_spin_lock(&__lock);
 	__owner = current;
-	current->lockdep_recursion++;
+	__this_cpu_inc(lockdep_recursion);
 }
 
 static inline void lockdep_unlock(void)
@@ -125,7 +118,7 @@ static inline void lockdep_unlock(void)
 	if (debug_locks && DEBUG_LOCKS_WARN_ON(__owner != current))
 		return;
 
-	current->lockdep_recursion--;
+	__this_cpu_dec(lockdep_recursion);
 	__owner = NULL;
 	arch_spin_unlock(&__lock);
 }
@@ -440,10 +433,15 @@ void lockdep_init_task(struct task_struct *task)
 	task->lockdep_recursion = 0;
 }
 
-static inline void lockdep_recursion_finish(void)
+static __always_inline void lockdep_recursion_inc(void)
 {
-	if (WARN_ON_ONCE(--current->lockdep_recursion))
-		current->lockdep_recursion = 0;
+	__this_cpu_inc(lockdep_recursion);
+}
+
+static __always_inline void lockdep_recursion_finish(void)
+{
+	if (WARN_ON_ONCE(__this_cpu_dec_return(lockdep_recursion)))
+		__this_cpu_write(lockdep_recursion, 0);
 }
 
 void lockdep_set_selftest_task(struct task_struct *task)
@@ -4056,7 +4054,16 @@ static void __trace_hardirqs_on_caller(void)
  */
 void lockdep_hardirqs_on_prepare(unsigned long ip)
 {
-	if (unlikely(!debug_locks || current->lockdep_recursion))
+	if (unlikely(!debug_locks))
+		return;
+
+	/*
+	 * NMIs do not (and cannot) track lock dependencies, nothing to do.
+	 */
+	if (unlikely(in_nmi()))
+		return;
+
+	if (unlikely(__this_cpu_read(lockdep_recursion)))
 		return;
 
 	if (unlikely(lockdep_hardirqs_enabled())) {
@@ -4092,7 +4099,7 @@ void lockdep_hardirqs_on_prepare(unsigned long ip)
 
 	current->hardirq_chain_key = current->curr_chain_key;
 
-	current->lockdep_recursion++;
+	lockdep_recursion_inc();
 	__trace_hardirqs_on_caller();
 	lockdep_recursion_finish();
 }
@@ -4102,7 +4109,30 @@ void noinstr lockdep_hardirqs_on(unsigned long ip)
 {
 	struct irqtrace_events *trace = &current->irqtrace;
 
-	if (unlikely(!debug_locks || curr->lockdep_recursion))
+	if (unlikely(!debug_locks))
+		return;
+
+	/*
+	 * NMIs can happen in the middle of local_irq_{en,dis}able() where the
+	 * tracking state and hardware state are out of sync.
+	 *
+	 * NMIs must save lockdep_hardirqs_enabled() to restore IRQ state from,
+	 * and not rely on hardware state like normal interrupts.
+	 */
+	if (unlikely(in_nmi())) {
+		if (!IS_ENABLED(CONFIG_TRACE_IRQFLAGS_NMI))
+			return;
+
+		/*
+		 * Skip:
+		 *  - recursion check, because NMI can hit lockdep;
+		 *  - hardware state check, because above;
+		 *  - chain_key check, see lockdep_hardirqs_on_prepare().
+		 */
+		goto skip_checks;
+	}
+
+	if (unlikely(__this_cpu_read(lockdep_recursion)))
 		return;
 
 	if (lockdep_hardirqs_enabled()) {
@@ -4144,7 +4174,7 @@ EXPORT_SYMBOL_GPL(lockdep_hardirqs_on);
 void noinstr lockdep_hardirqs_off(unsigned long ip)
 {
 
-	if (unlikely(!debug_locks || curr->lockdep_recursion))
+	 if (__this_cpu_read(lockdep_recursion))
 		return;
 
 	/*
@@ -4177,7 +4207,7 @@ void lockdep_softirqs_on(unsigned long ip)
 {
 	struct irqtrace_events *trace = &current->irqtrace;
 
-	if (unlikely(!debug_locks || current->lockdep_recursion))
+	if (unlikely(!lockdep_enabled()))
 		return;
 
 	/*
@@ -4192,7 +4222,7 @@ void lockdep_softirqs_on(unsigned long ip)
 		return;
 	}
 
-	current->lockdep_recursion++;
+	lockdep_recursion_inc();
 	/*
 	 * We'll do an OFF -> ON transition:
 	 */
@@ -4215,7 +4245,7 @@ void lockdep_softirqs_on(unsigned long ip)
  */
 void lockdep_softirqs_off(unsigned long ip)
 {
-	if (unlikely(!debug_locks || current->lockdep_recursion))
+	if (unlikely(!lockdep_enabled()))
 		return;
 
 	/*
@@ -4585,11 +4615,11 @@ void lockdep_init_map_waits(struct lockdep_map *lock, const char *name,
 	if (subclass) {
 		unsigned long flags;
 
-		if (lockdep_warn_on(current->lockdep_recursion))
+		if (DEBUG_LOCKS_WARN_ON(!lockdep_enabled()))
 			return;
 
 		raw_local_irq_save(flags);
-		current->lockdep_recursion++;
+		lockdep_recursion_inc();
 		register_lock_class(lock, subclass, 1);
 		lockdep_recursion_finish();
 		raw_local_irq_restore(flags);
@@ -5321,11 +5351,11 @@ void lock_set_class(struct lockdep_map *lock, const char *name,
 {
 	unsigned long flags;
 
-	if (unlikely(current->lockdep_recursion))
+	if (unlikely(!lockdep_enabled()))
 		return;
 
 	raw_local_irq_save(flags);
-	current->lockdep_recursion++;
+	lockdep_recursion_inc();
 	check_flags(flags);
 	if (__lock_set_class(lock, name, key, subclass, ip))
 		check_chain_key(current);
@@ -5338,11 +5368,11 @@ void lock_downgrade(struct lockdep_map *lock, unsigned long ip)
 {
 	unsigned long flags;
 
-	if (unlikely(current->lockdep_recursion))
+	if (unlikely(!lockdep_enabled()))
 		return;
 
 	raw_local_irq_save(flags);
-	current->lockdep_recursion++;
+	lockdep_recursion_inc();
 	check_flags(flags);
 	if (__lock_downgrade(lock, ip))
 		check_chain_key(current);
@@ -5372,7 +5402,7 @@ static void verify_lock_unused(struct lockdep_map *lock, struct held_lock *hlock
 
 static bool lockdep_nmi(void)
 {
-	if (current->lockdep_recursion & LOCKDEP_RECURSION_MASK)
+	if (raw_cpu_read(lockdep_recursion))
 		return false;
 
 	if (!in_nmi())
@@ -5405,7 +5435,12 @@ void lock_acquire(struct lockdep_map *lock, unsigned int subclass,
 {
 	unsigned long flags;
 
-	if (unlikely(current->lockdep_recursion)) {
+	trace_lock_acquire(lock, subclass, trylock, read, check, nest_lock, ip);
+
+	if (!debug_locks)
+		return;
+
+	if (unlikely(!lockdep_enabled())) {
 		/* XXX allow trylock from NMI ?!? */
 		if (lockdep_nmi() && !trylock) {
 			struct held_lock hlock;
@@ -5428,8 +5463,7 @@ void lock_acquire(struct lockdep_map *lock, unsigned int subclass,
 	raw_local_irq_save(flags);
 	check_flags(flags);
 
-	current->lockdep_recursion++;
-	trace_lock_acquire(lock, subclass, trylock, read, check, nest_lock, ip);
+	lockdep_recursion_inc();
 	__lock_acquire(lock, subclass, trylock, read, check,
 		       irqs_disabled_flags(flags), nest_lock, ip, 0, 0, 0);
 	lockdep_recursion_finish();
@@ -5441,13 +5475,15 @@ void lock_release(struct lockdep_map *lock, unsigned long ip)
 {
 	unsigned long flags;
 
-	if (unlikely(current->lockdep_recursion))
+	trace_lock_release(lock, ip);
+
+	if (unlikely(!lockdep_enabled()))
 		return;
 
 	raw_local_irq_save(flags);
 	check_flags(flags);
-	current->lockdep_recursion++;
-	trace_lock_release(lock, ip);
+
+	lockdep_recursion_inc();
 	if (__lock_release(lock, ip))
 		check_chain_key(current);
 	lockdep_recursion_finish();
@@ -5460,13 +5496,13 @@ noinstr int lock_is_held_type(const struct lockdep_map *lock, int read)
 	unsigned long flags;
 	int ret = 0;
 
-	if (unlikely(current->lockdep_recursion))
+	if (unlikely(!lockdep_enabled()))
 		return 1; /* avoid false negative lockdep_assert_held() */
 
 	raw_local_irq_save(flags);
 	check_flags(flags);
 
-	current->lockdep_recursion++;
+	lockdep_recursion_inc();
 	ret = __lock_is_held(lock, read);
 	lockdep_recursion_finish();
 	raw_local_irq_restore(flags);
@@ -5481,13 +5517,13 @@ struct pin_cookie lock_pin_lock(struct lockdep_map *lock)
 	struct pin_cookie cookie = NIL_COOKIE;
 	unsigned long flags;
 
-	if (unlikely(current->lockdep_recursion))
+	if (unlikely(!lockdep_enabled()))
 		return cookie;
 
 	raw_local_irq_save(flags);
 	check_flags(flags);
 
-	current->lockdep_recursion++;
+	lockdep_recursion_inc();
 	cookie = __lock_pin_lock(lock);
 	lockdep_recursion_finish();
 	raw_local_irq_restore(flags);
@@ -5500,13 +5536,13 @@ void lock_repin_lock(struct lockdep_map *lock, struct pin_cookie cookie)
 {
 	unsigned long flags;
 
-	if (unlikely(current->lockdep_recursion))
+	if (unlikely(!lockdep_enabled()))
 		return;
 
 	raw_local_irq_save(flags);
 	check_flags(flags);
 
-	current->lockdep_recursion++;
+	lockdep_recursion_inc();
 	__lock_repin_lock(lock, cookie);
 	lockdep_recursion_finish();
 	raw_local_irq_restore(flags);
@@ -5517,13 +5553,13 @@ void lock_unpin_lock(struct lockdep_map *lock, struct pin_cookie cookie)
 {
 	unsigned long flags;
 
-	if (unlikely(current->lockdep_recursion))
+	if (unlikely(!lockdep_enabled()))
 		return;
 
 	raw_local_irq_save(flags);
 	check_flags(flags);
 
-	current->lockdep_recursion++;
+	lockdep_recursion_inc();
 	__lock_unpin_lock(lock, cookie);
 	lockdep_recursion_finish();
 	raw_local_irq_restore(flags);
@@ -5654,16 +5690,14 @@ void lock_contended(struct lockdep_map *lock, unsigned long ip)
 {
 	unsigned long flags;
 
-	if (unlikely(!lock_stat || !debug_locks))
-		return;
+	trace_lock_acquired(lock, ip);
 
-	if (unlikely(current->lockdep_recursion))
+	if (unlikely(!lock_stat || !lockdep_enabled()))
 		return;
 
 	raw_local_irq_save(flags);
 	check_flags(flags);
-	current->lockdep_recursion++;
-	trace_lock_contended(lock, ip);
+	lockdep_recursion_inc();
 	__lock_contended(lock, ip);
 	lockdep_recursion_finish();
 	raw_local_irq_restore(flags);
@@ -5674,15 +5708,14 @@ void lock_acquired(struct lockdep_map *lock, unsigned long ip)
 {
 	unsigned long flags;
 
-	if (unlikely(!lock_stat || !debug_locks))
-		return;
+	trace_lock_contended(lock, ip);
 
-	if (unlikely(current->lockdep_recursion))
+	if (unlikely(!lock_stat || !lockdep_enabled()))
 		return;
 
 	raw_local_irq_save(flags);
 	check_flags(flags);
-	current->lockdep_recursion++;
+	lockdep_recursion_inc();
 	__lock_acquired(lock, ip);
 	lockdep_recursion_finish();
 	raw_local_irq_restore(flags);
