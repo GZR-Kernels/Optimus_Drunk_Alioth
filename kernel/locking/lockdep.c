@@ -4388,16 +4388,15 @@ static int mark_lock(struct task_struct *curr, struct held_lock *this,
 		return 1;
 	}
 
+	if (!hlock_class(this)->usage_mask)
+		debug_atomic_dec(nr_unused_locks);
+
 	hlock_class(this)->usage_mask |= new_mask;
 
 	if (!(hlock_class(this)->usage_traces[new_bit] = save_trace()))
 		return 0;
 
-	switch (new_bit) {
-	case LOCK_USED:
-		debug_atomic_dec(nr_unused_locks);
-		break;
-	default:
+	if (new_bit < LOCK_USED) {
 		ret = mark_lock_irq(curr, this, new_bit);
 		if (!ret)
 			return 0;
