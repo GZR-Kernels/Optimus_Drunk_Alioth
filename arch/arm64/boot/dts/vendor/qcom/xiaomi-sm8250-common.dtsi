@@ -13,6 +13,7 @@
 	interrupt-names = "dcvsh0_int", "dcvsh1_int", "dcvsh2_int";
 
 	qcom,cpufreq-table-0 =
+			< 691200>,
 			<1708800>,
 			<1804800>;
 
