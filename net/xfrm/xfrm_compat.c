@@ -585,7 +585,7 @@ static int xfrm_user_policy_compat(u8 **pdata32, int optlen)
 	if (optlen < sizeof(*p))
 		return -EINVAL;
 
-	data64 = kmalloc(optlen + 4, GFP_USER | __GFP_NOWARN);
+	data64 = kmalloc_track_caller(optlen + 4, GFP_USER | __GFP_NOWARN);
 	if (!data64)
 		return -ENOMEM;
 
