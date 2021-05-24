@@ -129,7 +129,7 @@ static int dma_buf_release(struct inode *inode, struct file *file)
 	struct dma_buf *dmabuf;
 	struct dentry *dentry = file->f_path.dentry;
 	int dtor_ret = 0;
-    pid_t tgid = task_tgid_nr(current);
+	pid_t tgid = task_tgid_nr(current);
 
 	if (!is_dma_buf_file(file))
 		return -EINVAL;
@@ -172,7 +172,8 @@ static int dma_buf_release(struct inode *inode, struct file *file)
 		reservation_object_fini(dmabuf->resv);
 
 	module_put(dmabuf->owner);
-	dmabuf_dent_put(dmabuf);
+	kfree(dmabuf->name);
+	kfree(dmabuf);
 	return 0;
 }
 
@@ -474,7 +475,8 @@ static long dma_buf_ioctl(struct file *file,
 
 		return ret;
 
-	case DMA_BUF_SET_NAME:
+	case DMA_BUF_SET_NAME_A:
+	case DMA_BUF_SET_NAME_B:
 		return dma_buf_set_name(dmabuf, (const char __user *)arg);
 
 	default:
