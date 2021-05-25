@@ -12,7 +12,6 @@
 #include <linux/usb/ch9.h>
 #include <linux/sysfs.h>
 #include <linux/kthread.h>
-#include <linux/file.h>
 #include <linux/byteorder/generic.h>
 
 #include "usbip_common.h"
@@ -91,9 +90,8 @@ unlock:
 }
 static BIN_ATTR_RO(dev_desc, sizeof(struct usb_device_descriptor));
 
-static ssize_t usbip_sockfd_store(struct device *dev,
-				  struct device_attribute *attr,
-				  const char *in, size_t count)
+static ssize_t usbip_sockfd_store(struct device *dev, struct device_attribute *attr,
+		     const char *in, size_t count)
 {
 	struct vudc *udc = (struct vudc *) dev_get_drvdata(dev);
 	int rv;
@@ -102,8 +100,6 @@ static ssize_t usbip_sockfd_store(struct device *dev,
 	struct socket *socket;
 	unsigned long flags;
 	int ret;
-	struct task_struct *tcp_rx = NULL;
-	struct task_struct *tcp_tx = NULL;
 
 	rv = kstrtoint(in, 0, &sockfd);
 	if (rv != 0)
@@ -113,7 +109,6 @@ static ssize_t usbip_sockfd_store(struct device *dev,
 		dev_err(dev, "no device");
 		return -ENODEV;
 	}
-	mutex_lock(&udc->ud.sysfs_lock);
 	spin_lock_irqsave(&udc->lock, flags);
 	/* Don't export what we don't have */
 	if (!udc->driver || !udc->pullup) {
@@ -143,58 +138,24 @@ static ssize_t usbip_sockfd_store(struct device *dev,
 			goto unlock_ud;
 		}
 
-		if (socket->type != SOCK_STREAM) {
-			dev_err(dev, "Expecting SOCK_STREAM - found %d",
-				socket->type);
-			ret = -EINVAL;
-			goto sock_err;
-		}
+		udc->ud.tcp_socket = socket;
 
-		/* unlock and create threads and get tasks */
 		spin_unlock_irq(&udc->ud.lock);
 		spin_unlock_irqrestore(&udc->lock, flags);
 
-		tcp_rx = kthread_create(&v_rx_loop, &udc->ud, "vudc_rx");
-		if (IS_ERR(tcp_rx)) {
-			sockfd_put(socket);
-			mutex_unlock(&udc->ud.sysfs_lock);
-			return -EINVAL;
-		}
-		tcp_tx = kthread_create(&v_tx_loop, &udc->ud, "vudc_tx");
-		if (IS_ERR(tcp_tx)) {
-			kthread_stop(tcp_rx);
-			sockfd_put(socket);
-			mutex_unlock(&udc->ud.sysfs_lock);
-			return -EINVAL;
-		}
+		udc->ud.tcp_rx = kthread_get_run(&v_rx_loop,
+						    &udc->ud, "vudc_rx");
+		udc->ud.tcp_tx = kthread_get_run(&v_tx_loop,
+						    &udc->ud, "vudc_tx");
 
-		/* get task structs now */
-		get_task_struct(tcp_rx);
-		get_task_struct(tcp_tx);
-
-		/* lock and update udc->ud state */
 		spin_lock_irqsave(&udc->lock, flags);
 		spin_lock_irq(&udc->ud.lock);
-
-		udc->ud.tcp_socket = socket;
-		udc->ud.tcp_rx = tcp_rx;
-		udc->ud.tcp_tx = tcp_tx;
 		udc->ud.status = SDEV_ST_USED;
-
 		spin_unlock_irq(&udc->ud.lock);
 
 		ktime_get_ts64(&udc->start_time);
 		v_start_timer(udc);
 		udc->connected = 1;
-
-		spin_unlock_irqrestore(&udc->lock, flags);
-
-		wake_up_process(udc->ud.tcp_rx);
-		wake_up_process(udc->ud.tcp_tx);
-
-		mutex_unlock(&udc->ud.sysfs_lock);
-		return count;
-
 	} else {
 		if (!udc->connected) {
 			dev_err(dev, "Device not connected");
@@ -213,17 +174,13 @@ static ssize_t usbip_sockfd_store(struct device *dev,
 	}
 
 	spin_unlock_irqrestore(&udc->lock, flags);
-	mutex_unlock(&udc->ud.sysfs_lock);
 
 	return count;
 
-sock_err:
-	sockfd_put(socket);
 unlock_ud:
 	spin_unlock_irq(&udc->ud.lock);
 unlock:
 	spin_unlock_irqrestore(&udc->lock, flags);
-	mutex_unlock(&udc->ud.sysfs_lock);
 
 	return ret;
 }
