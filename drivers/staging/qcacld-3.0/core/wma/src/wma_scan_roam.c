@@ -1330,6 +1330,8 @@ static QDF_STATUS wma_roam_scan_offload_ap_profile(tp_wma_handle wma_handle,
 			roam_req->min_rssi_params[DEAUTH_MIN_RSSI];
 	ap_profile.min_rssi_params[BMISS_MIN_RSSI] =
 			roam_req->min_rssi_params[BMISS_MIN_RSSI];
+	ap_profile.min_rssi_params[MIN_RSSI_2G_TO_5G_ROAM] =
+			roam_req->min_rssi_params[MIN_RSSI_2G_TO_5G_ROAM];
 	if (!db2dbm_enabled) {
 		ap_profile.min_rssi_params[DEAUTH_MIN_RSSI].min_rssi -=
 				       WMA_NOISE_FLOOR_DBM_DEFAULT;
@@ -1339,6 +1341,10 @@ static QDF_STATUS wma_roam_scan_offload_ap_profile(tp_wma_handle wma_handle,
 		ap_profile.min_rssi_params[BMISS_MIN_RSSI].min_rssi -=
 			       WMA_NOISE_FLOOR_DBM_DEFAULT;
 		ap_profile.min_rssi_params[BMISS_MIN_RSSI].min_rssi &=
+				0x000000ff;
+		ap_profile.min_rssi_params[MIN_RSSI_2G_TO_5G_ROAM].min_rssi -=
+				WMA_NOISE_FLOOR_DBM_DEFAULT;
+		ap_profile.min_rssi_params[MIN_RSSI_2G_TO_5G_ROAM].min_rssi &=
 				0x000000ff;
 	}
 
@@ -4161,19 +4167,14 @@ wma_roam_ho_fail_handler(tp_wma_handle wma, uint32_t vdev_id,
 	struct handoff_failure_ind *ho_failure_ind;
 	struct scheduler_msg sme_msg = { 0 };
 	QDF_STATUS qdf_status;
-	struct reject_ap_info ap_info;
-
-	ap_info.bssid = bssid;
-	ap_info.reject_ap_type = DRIVER_AVOID_TYPE;
-	ap_info.reject_reason = REASON_ROAM_HO_FAILURE;
-	ap_info.source = ADDED_BY_DRIVER;
-	wlan_blm_add_bssid_to_reject_list(wma->pdev, &ap_info);
 
 	ho_failure_ind = qdf_mem_malloc(sizeof(*ho_failure_ind));
 	if (!ho_failure_ind)
 		return;
 
 	ho_failure_ind->vdev_id = vdev_id;
+	ho_failure_ind->bssid = bssid;
+
 	sme_msg.type = eWNI_SME_HO_FAIL_IND;
 	sme_msg.bodyptr = ho_failure_ind;
 	sme_msg.bodyval = 0;

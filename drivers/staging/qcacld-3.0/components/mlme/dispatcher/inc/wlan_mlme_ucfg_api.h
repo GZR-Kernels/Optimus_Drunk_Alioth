@@ -1394,6 +1394,22 @@ QDF_STATUS ucfg_mlme_set_assoc_sta_limit(struct wlan_objmgr_psoc *psoc,
 }
 
 /**
+ * ucfg_mlme_get_assoc_sta_limit() - Get the assoc sta limit
+ * @psoc: pointer to psoc object
+ * @value: Pointer to variable that needs to be filled by MLME
+ *
+ * Inline UCFG API to be used by HDD/OSIF callers
+ *
+ * Return: QDF Status
+ */
+static inline
+QDF_STATUS ucfg_mlme_get_assoc_sta_limit(struct wlan_objmgr_psoc *psoc,
+					 int *value)
+{
+	return wlan_mlme_get_assoc_sta_limit(psoc, value);
+}
+
+/**
  * ucfg_mlme_set_rmc_action_period_freq() - Set the rmc action period frequency
  * @psoc: pointer to psoc object
  * @value: Value that needs to be set from the caller
@@ -4098,4 +4114,15 @@ ucfg_mlme_set_roam_reason_vsie_status(struct wlan_objmgr_psoc *psoc,
 }
 
 #endif
+
+/**
+ * ucfg_is_roaming_enabled() - Check if roaming enabled
+ * to firmware.
+ * @psoc: psoc context
+ * @vdev_id: vdev id
+ *
+ * Return: True if Roam state machine is in
+ *	   WLAN_ROAM_RSO_ENABLED/WLAN_ROAMING_IN_PROG/WLAN_ROAM_SYNCH_IN_PROG
+ */
+bool ucfg_is_roaming_enabled(struct wlan_objmgr_pdev *pdev, uint8_t vdev_id);
 #endif /* _WLAN_MLME_UCFG_API_H_ */
