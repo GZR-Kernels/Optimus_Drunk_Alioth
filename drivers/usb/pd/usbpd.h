@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef _USBPD_H
@@ -63,6 +64,7 @@ struct pd_phy_params {
 	enum power_role power_role;
 	u8		frame_filter_val;
 };
+
 
 struct usbpd_pdo {
 	bool pps;
