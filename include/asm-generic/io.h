@@ -19,7 +19,6 @@
 #include <asm-generic/iomap.h>
 #endif
 
-#include <asm/mmiowb.h>
 #include <asm-generic/pci_iomap.h>
 
 #ifndef mmiowb
@@ -50,7 +49,7 @@
 
 /* serialize device access against a spin_unlock, usually handled there. */
 #ifndef __io_aw
-#define __io_aw()      mmiowb_set_pending()
+#define __io_aw()      barrier()
 #endif
 
 #ifndef __io_pbw
