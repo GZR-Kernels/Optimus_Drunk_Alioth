@@ -1058,7 +1058,6 @@ static int loop_configure(struct loop_device *lo, fmode_t mode,
 	int		error;
 	loff_t		size;
 	bool		partscan;
-	unsigned short  bsize;
 
 	/* This is safe, since we have a reference from open(). */
 	__module_get(THIS_MODULE);
