@@ -1,2 +1,4 @@
-* Fixed gestures & pinch to zoom in some apps
-* Added FKM updater config
+* Added Devfreq boost & exfat support
+* Increased zram size to 2.5GB
+* Fixed wifi on MIUI
+* Improved performance & battery usage
