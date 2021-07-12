@@ -1,4 +1,5 @@
-* Added Devfreq boost & exfat support
-* Increased zram size to 2.5GB
-* Fixed wifi on MIUI
-* Improved performance & battery usage
+* Updated to 4.19.197
+* Reverted some changes related to thermal & charging
+* Increased zram to 3gb
+* Fixed deep sleep in AOD
+* Other suspend & performance related changes
