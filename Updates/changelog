@@ -1,5 +1,5 @@
-* Updated to 4.19.197
-* Reverted some changes related to thermal & charging
-* Increased zram to 3gb
-* Fixed deep sleep in AOD
-* Other suspend & performance related changes
+* Merged newest syberia kernel changes
+* Updated display timings
+* Added 90hz option (some minor flickering occurs when switching to and from 90hz)
+* Decreased zram back to 2gb (yes I will stop now)
+* Some uclamp optimisations
