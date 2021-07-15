@@ -1,5 +1,3 @@
-* Merged newest syberia kernel changes
-* Updated display timings
-* Added 90hz option (some minor flickering occurs when switching to and from 90hz)
-* Decreased zram back to 2gb (yes I will stop now)
-* Some uclamp optimisations
+* Rebased on syberia kernel
+* Removed simple_lmk (let me know if memory usage/performance is better)
+* Removed 90hz (too much screen flickering when brightness is low)
