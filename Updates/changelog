@@ -1,5 +1,2 @@
-* Merged newest syberia kernel changes
-* Updated display timings
-* Added 90hz option (some minor flickering occurs when switching to and from 90hz)
-* Decreased zram back to 2gb (yes I will stop now)
-* Some uclamp optimisations
+* Rebased on Quantic kernel
+* Added minimal frequencies & sdfat
