@@ -5277,6 +5277,8 @@ static int dsi_display_bind(struct device *dev,
 		goto error;
 	}
 
+	atomic_set(&display->fod_ui, false);
+
 	memset(&info, 0x0, sizeof(info));
 
 	display_for_each_ctrl(i, display) {
