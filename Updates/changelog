@@ -1,3 +1,2 @@
-* Added latest changes from Quantic kernel
-* Added full frequency table, only removed the lowest frequencies from little cpu (they are never being used)
-* Upstreamed to 4.19.198
+* Upstreamed to 4.19.199
+* Fixed brightness issues with ambient display
