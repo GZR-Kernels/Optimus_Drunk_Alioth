@@ -1,11 +1,11 @@
  {
   "kernel": {
     "name": "Optimus Drunk Alioth",
-    "version": "v11.9",
-    "link": "https://github.com/GZR-Kernels/Optimus_Drunk_Alioth/releases/download/v11.9/Optimus_Drunk_Alioth_v11.9.zip",
+    "version": "v11.10",
+    "link": "https://github.com/GZR-Kernels/Optimus_Drunk_Alioth/releases/download/v11.10/Optimus_Drunk_Alioth_v11.10.zip",
     "changelog_url": "https://raw.githubusercontent.com/GZR-Kernels/Optimus_Drunk_Alioth/11.0/Updates/changelog",
-    "date": "2021-08-02",
-    "sha1": "e2cf8bd7b153f0fa48e359ce345b0b221d8f6e9c"
+    "date": "2021-08-04",
+    "sha1": "68ddb836fb208643ede045c066bb22fdaffcba9b"
   },
   "support": {
     "link": "https://forum.xda-developers.com/t/kernel-alioth-optimus-drunk-kernel-v11-0-06-07.4302055/"
