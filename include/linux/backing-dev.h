@@ -500,6 +500,4 @@ static inline int bdi_rw_congested(struct backing_dev_info *bdi)
 }
 const char *bdi_dev_name(struct backing_dev_info *bdi);
 
-extern const char *bdi_unknown_name;
-
 #endif	/* _LINUX_BACKING_DEV_H */
