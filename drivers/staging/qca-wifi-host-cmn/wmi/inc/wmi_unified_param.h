@@ -620,6 +620,7 @@ typedef enum {
  * @set_agile: is agile mode
  * @allow_he: HE allowed on chan
  * @psc_channel: 6 ghz preferred scan chan
+ * @nan_disabled: is NAN disabled on @mhz
  * @phy_mode: phymode (vht80 or ht40 or ...)
  * @cfreq1: centre frequency on primary
  * @cfreq2: centre frequency on secondary
@@ -644,7 +645,8 @@ struct channel_param {
 		allow_vht:1,
 		set_agile:1,
 		allow_he:1,
-		psc_channel:1;
+		psc_channel:1,
+		nan_disabled:1;
 	uint32_t phy_mode;
 	uint32_t cfreq1;
 	uint32_t cfreq2;
@@ -7721,6 +7723,25 @@ struct wmi_neighbor_report_data {
 	uint32_t resp_time;
 	uint8_t num_freq;
 	uint32_t freq[MAX_ROAM_SCAN_CHAN];
+};
+
+/**
+ * struct wmi_roam_msg_info - Roam message related information
+ * @present:    Flag to check if the roam msg info tlv is present
+ * @timestamp:  Timestamp is the absolute time w.r.t host timer which is
+ * synchronized between the host and target
+ * @msg_id:     Message ID from WMI_ROAM_MSG_ID
+ * @msg_param1: msg_param1, values is based on the host & FW
+ * understanding and depend on the msg ID
+ * @msg_param2: msg_param2 value is based on the host & FW understanding
+ * and depend on the msg ID
+ */
+struct wmi_roam_msg_info {
+	bool present;
+	uint32_t timestamp;
+	uint32_t msg_id;
+	uint32_t msg_param1;
+	uint32_t msg_param2;
 };
 
 /**
