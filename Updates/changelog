@@ -1,8 +1,2 @@
-* Upstreamed to 4.19.202
-* Updated to LA.UM.9.12.r1-12500-SMxx50.0
-* Blocked most common wakelocks
-* Some fixes for zram
-* Enabled zram writeback
-* Set CONFIG_HZ to 300 (less jank under load)
-* Deepsleep will kick in faster
-* Some other small fixes
+* Upstreamed to 4.19.204
+* Updated to LA.UM.9.12.r1-12000-SMxx50.0
