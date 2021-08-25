@@ -1,2 +1,3 @@
-* Upstreamed to 4.19.204
-* Updated to LA.UM.9.12.r1-12000-SMxx50.0
+* Fixed random reboots and crashes while watching video or video calling
+* Updated display panel dtsi for better colors and quality
+* Some small fixes for battery saving
