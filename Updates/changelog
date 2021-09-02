@@ -1,3 +1,1 @@
-* Fixed random reboots and crashes while watching video or video calling
-* Updated display panel dtsi for better colors and quality
-* Some small fixes for battery saving
+* Upstreamed to 4.19.205
