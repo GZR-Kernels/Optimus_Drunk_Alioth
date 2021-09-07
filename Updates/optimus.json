@@ -1,10 +1,10 @@
  {
   "kernel": {
     "name": "Optimus Drunk Alioth",
-    "version": "v11.14",
-    "link": "https://github.com/GZR-Kernels/Optimus_Drunk_Alioth/releases/download/v11.14/Optimus_Drunk_Alioth_v11.14.zip",
+    "version": "v11.15",
+    "link": "https://github.com/GZR-Kernels/Optimus_Drunk_Alioth/releases/download/v11.15/Optimus_Drunk_Alioth_v11.15.zip",
     "changelog_url": "https://raw.githubusercontent.com/GZR-Kernels/Optimus_Drunk_Alioth/11.0/Updates/changelog",
-    "date": "2021-09-02",
+    "date": "2021-09-07",
     "sha1": "34f11cc73ac68f04f569d3e14e7404b9f7687119"
   },
   "support": {
