@@ -1,2 +1,6 @@
-* Upstreamed to 4.19.206
+* Upstreamed to 4.19.208
+* Enable thermal dimming
+* Update display panel to stock V12.5.1.0.RKHMIXM
+* Updated touchscreen firmware
+* Disable proximity sensor when telegram is active
 * If gestures don't work, flash rom's dtbo.img
