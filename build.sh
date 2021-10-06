@@ -4,7 +4,7 @@
 
 KERNEL_DEFCONFIG=vendor/alioth_defconfig
 ANYKERNEL3_DIR=$PWD/AnyKernel3/
-FINAL_KERNEL_ZIP=Optimus_Drunk_Alioth_v11.16.zip
+FINAL_KERNEL_ZIP=Optimus_Drunk_Alioth_v11.17.zip
 
 # Speed up build process
 MAKE="./makeparallel"
